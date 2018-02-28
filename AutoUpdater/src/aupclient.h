@@ -10,7 +10,7 @@ class AupClient : public QWidget
     Q_OBJECT
 public:
     explicit AupClient(QWidget *parent = nullptr);
-
+    static void prepareUpdate(void *context);
 signals:
 
 public slots:
@@ -20,7 +20,5 @@ private:
     AupInitStatus status;
     QPushButton *updatebtn;
 };
-
-void prepareUpdate();
 
 #endif // AUPCLIENT_H

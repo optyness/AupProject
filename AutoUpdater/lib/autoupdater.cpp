@@ -1,12 +1,7 @@
 #include "autoupdater.h"
 
-AupInitStatus aup_init(aup_callback_fn callback)
+AupInitStatus aup_init(aup_callback_fn callback, void* context)
 {
-    callback();
+    callback(context);
     return AupRequireAppExit;
 }
-
-//AutoUpdater::AutoUpdater()
-//{
-
-//}

@@ -1,5 +1,4 @@
 #include "aupclient.h"
-//#include "autoupdater.cpp"
 #include <QtWidgets>
 
 AupClient::AupClient(QWidget *parent) : QWidget(parent)
@@ -23,11 +22,11 @@ AupClient::AupClient(QWidget *parent) : QWidget(parent)
 void AupClient::updateCheck()
 {
     //проверка наличия обновления через сервис
-    status = aup_init(&prepareUpdate);
+    status = aup_init(&AupClient::prepareUpdate, this);
 }
 
 
-void prepareUpdate()
+void AupClient::prepareUpdate(void *context)
 {
-
+    static_cast<AupClient*>(context)->updatebtn->setEnabled(true);
 }
