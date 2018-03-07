@@ -8,7 +8,7 @@ using namespace std;
 SERVICE_STATUS serviceStatus;
 SERVICE_STATUS_HANDLE serviceStatusHandle;
 
-#define serviceName TEXT("AutoUpdateService")
+#define service_name TEXT("AutoUpdateService")
 TCHAR servicePath[MAX_PATH];
 
 int addLogMessage(const char* text)
@@ -16,7 +16,7 @@ int addLogMessage(const char* text)
   return printf(text);
 }
 
-void ControlHandler(DWORD request){
+void controlHandler(DWORD request){
     switch(request){
         case SERVICE_CONTROL_STOP:
             addLogMessage("Stopped.");
@@ -43,7 +43,7 @@ void ControlHandler(DWORD request){
     return;
 }
 
-void ServiceMain(int argc, char** argv){
+void serviceMain(int argc, char** argv){
     //int error;
     int i = 0;
 
@@ -55,7 +55,7 @@ void ServiceMain(int argc, char** argv){
     serviceStatus.dwCheckPoint     = 0;
     serviceStatus.dwWaitHint      = 0;
 
-    serviceStatusHandle = RegisterServiceCtrlHandler(serviceName, (LPHANDLER_FUNCTION)ControlHandler);
+    serviceStatusHandle = RegisterServiceCtrlHandler(service_name, (LPHANDLER_FUNCTION)controlHandler);
     if (serviceStatusHandle == (SERVICE_STATUS_HANDLE)0){
         return;
     }
@@ -70,9 +70,6 @@ void ServiceMain(int argc, char** argv){
 
     serviceStatus.dwCurrentState = SERVICE_RUNNING;
     SetServiceStatus (serviceStatusHandle, &serviceStatus);
-
-//    while (serviceStatus.dwCurrentState == SERVICE_RUNNING)
-//    {
 
 //    }
 //    while (serviceStatus.dwCurrentState == SERVICE_RUNNING)
@@ -92,7 +89,7 @@ void ServiceMain(int argc, char** argv){
     return;
 }
 
-int InstallService(){
+int installService(){
     SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
     if(!hSCManager){
         addLogMessage("Error: Can't open Service Control Manager");
@@ -101,8 +98,8 @@ int InstallService(){
 
     SC_HANDLE hService = CreateService(
         hSCManager,
-        serviceName,
-        serviceName,
+        service_name,
+        service_name,
         SERVICE_ALL_ACCESS,
         SERVICE_WIN32_OWN_PROCESS,
         SERVICE_DEMAND_START,
@@ -151,13 +148,13 @@ int InstallService(){
     return 0;
 }
 
-int RemoveService(){
+int removeService(){
     SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
     if(!hSCManager){
         addLogMessage("Error: Can't open Service Control Manager");
         return -1;
     }
-    SC_HANDLE hService = OpenService(hSCManager, serviceName, SERVICE_STOP | DELETE);
+    SC_HANDLE hService = OpenService(hSCManager, service_name, SERVICE_STOP | DELETE);
     if(!hService){
         addLogMessage("Error: Can't remove service");
         CloseServiceHandle(hSCManager);
@@ -171,9 +168,13 @@ int RemoveService(){
     return 0;
 }
 
-int StartService1() {
+int startAupService() {
     SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
-    SC_HANDLE hService = OpenService(hSCManager, serviceName, SERVICE_START);
+    if(!hSCManager){
+        addLogMessage("Error: Can't open Service Control Manager");
+        return -1;
+    }
+    SC_HANDLE hService = OpenService(hSCManager, service_name, SERVICE_START);
     if(!StartService(hService, 0, NULL)){
         CloseServiceHandle(hSCManager);
         //addLogMessage("Error: Can't start service");
@@ -228,14 +229,70 @@ int StartService1() {
     return 0;
 }
 
+int stopAupService(){
+    SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+    if(!hSCManager){
+        addLogMessage("Error: Can't open Service Control Manager");
+        return -1;
+    }
+    SC_HANDLE hService = OpenService(hSCManager, service_name, SERVICE_STOP);
+
+    ControlService(hService, SERVICE_CONTROL_STOP, &serviceStatus);
+    CloseServiceHandle(hService);
+    CloseServiceHandle(hSCManager);
+    return 0;
+}
+
+int setEnableAutoStart(bool flag){
+    SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+    if(!hSCManager){
+        addLogMessage("Error: Can't open Service Control Manager");
+        return -1;
+    }
+    SC_HANDLE hService = OpenService(hSCManager, service_name, SERVICE_CHANGE_CONFIG);
+    if(flag){
+        ChangeServiceConfig(
+                    hService,
+                    SERVICE_NO_CHANGE,
+                    SERVICE_AUTO_START,
+                    SERVICE_NO_CHANGE,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL
+                    );
+    }else{
+        ChangeServiceConfig(
+                    hService,
+                    SERVICE_NO_CHANGE,
+                    SERVICE_DEMAND_START,
+                    SERVICE_NO_CHANGE,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL
+                    );
+    }
+
+    CloseServiceHandle(hService);
+    CloseServiceHandle(hSCManager);
+    return 0;
+}
+
 int main(int argc, _TCHAR* argv[])
 {
     GetModuleFileName(NULL, servicePath, MAX_PATH);
 
     if(argc - 1 == 0) {
         SERVICE_TABLE_ENTRY ServiceTable[1];
-        ServiceTable[0].lpServiceName = serviceName;
-        ServiceTable[0].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)ServiceMain;
+        ServiceTable[0].lpServiceName = service_name;
+        ServiceTable[0].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)serviceMain;
 
         if(!StartServiceCtrlDispatcher(ServiceTable)) {
             addLogMessage("Error: StartServiceCtrlDispatcher");
@@ -255,12 +312,20 @@ int main(int argc, _TCHAR* argv[])
                 break;
             }
         }
-        //странное поведение сервиса (постоянное включение/выключение)
-    }else if(_tcscmp(argv[argc-1], _T("install")) == 0){
-        InstallService();
-    }else if(_tcscmp(argv[argc-1], _T("remove")) == 0){
-        RemoveService();
-    }else if(_tcscmp(argv[argc-1], _T("start")) == 0){
-        StartService1();
+    }else if(_tcscmp(argv[argc-1], _T("--install")) == 0){
+        installService();
+    }else if(_tcscmp(argv[argc-1], _T("--uninstall")) == 0){
+        removeService();
+    }else if(_tcscmp(argv[argc-1], _T("--start")) == 0){
+        startAupService();
+    }else if(_tcscmp(argv[argc-1], _T("--installstart")) == 0){
+        installService();
+        startAupService();
+    }else if(_tcscmp(argv[argc-1], _T("--stop")) == 0){
+        stopAupService();
+    }else if(_tcscmp(argv[argc-1], _T("--autostart")) == 0){
+        setEnableAutoStart(true);
+    }else if(_tcscmp(argv[argc-1], _T("--noautostart")) == 0){
+        setEnableAutoStart(false);
     }
 }
