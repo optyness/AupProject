@@ -71,19 +71,23 @@ void ServiceMain(int argc, char** argv){
     serviceStatus.dwCurrentState = SERVICE_RUNNING;
     SetServiceStatus (serviceStatusHandle, &serviceStatus);
 
-    while (serviceStatus.dwCurrentState == SERVICE_RUNNING)
-    {
-        char buffer[255];
-        sprintf_s(buffer, "%u", i);
-        int result = addLogMessage(buffer);
-        if (result){
-            serviceStatus.dwCurrentState    = SERVICE_STOPPED;
-            serviceStatus.dwWin32ExitCode   = -1;
-            SetServiceStatus(serviceStatusHandle, &serviceStatus);
-            return;
-        }
-        i++;
-    }
+//    while (serviceStatus.dwCurrentState == SERVICE_RUNNING)
+//    {
+
+//    }
+//    while (serviceStatus.dwCurrentState == SERVICE_RUNNING)
+//    {
+//        char buffer[255];
+//        sprintf_s(buffer, "%u", i);
+//        int result = addLogMessage(buffer);
+//        if (result){
+//            serviceStatus.dwCurrentState    = SERVICE_STOPPED;
+//            serviceStatus.dwWin32ExitCode   = -1;
+//            SetServiceStatus(serviceStatusHandle, &serviceStatus);
+//            return;
+//        }
+//        i++;
+//    }
 
     return;
 }
@@ -218,6 +222,7 @@ int StartService1() {
         }
         return -1;
     }
+    //addLogMessage("Start service");
     CloseServiceHandle(hService);
     CloseServiceHandle(hSCManager);
     return 0;
@@ -234,12 +239,28 @@ int main(int argc, _TCHAR* argv[])
 
         if(!StartServiceCtrlDispatcher(ServiceTable)) {
             addLogMessage("Error: StartServiceCtrlDispatcher");
+            int err = GetLastError();
+            switch(err){
+            case ERROR_FAILED_SERVICE_CONTROLLER_CONNECT:
+                addLogMessage("ERROR_FAILED_SERVICE_CONTROLLER_CONNECT");
+                break;
+            case ERROR_INVALID_DATA:
+                addLogMessage("ERROR_INVALID_DATA");
+                break;
+            case ERROR_SERVICE_ALREADY_RUNNING:
+                addLogMessage("ERROR_SERVICE_ALREADY_RUNNING");
+                break;
+            default:
+                addLogMessage("Undefined error");
+                break;
+            }
         }
         //странное поведение сервиса (постоянное включение/выключение)
-        //StartService1();
     }else if(_tcscmp(argv[argc-1], _T("install")) == 0){
         InstallService();
     }else if(_tcscmp(argv[argc-1], _T("remove")) == 0){
         RemoveService();
+    }else if(_tcscmp(argv[argc-1], _T("start")) == 0){
+        StartService1();
     }
 }
