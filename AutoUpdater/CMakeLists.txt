@@ -9,6 +9,7 @@ set(CMAKE_AUTOMOC ON)
 
 # Find the QtWidgets library
 find_package(Qt5Widgets)
+find_package(Qt5Network)
 
 #include_directories(serviceh)
 include_directories(lib)
@@ -26,4 +27,5 @@ include_directories(${Qt5Widgets_INCLUDES})
 # Use the Widgets module from Qt 5.
 target_link_libraries(${PROJECT_NAME} auplib)
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets)
+target_link_libraries(${PROJECT_NAME} Qt5::Network)#${QT_QTNETWORK_LIBRARY})
 #target_link_libraries(${PROJECT_NAME} QtSolutions_Service-head)
