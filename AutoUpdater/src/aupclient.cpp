@@ -1,6 +1,6 @@
 #include "aupclient.h"
 
-AupClient::AupClient(QWidget *parent) : QWidget(parent), sharedMemory("AupInfo")
+AupClient::AupClient(QWidget *parent) : QWidget(parent)
 {
     resize(500,70);
     QHBoxLayout *layout = new QHBoxLayout();
@@ -16,6 +16,8 @@ AupClient::AupClient(QWidget *parent) : QWidget(parent), sharedMemory("AupInfo")
     updatebtn->setEnabled(false);
     connect(checkbtn, &QPushButton::clicked,
             this, &AupClient::updateCheck);
+    connect(updatebtn, &QPushButton::clicked,
+            this, &AupClient::clientUpdate);
 
     manager = new QNetworkAccessManager(this);
     connect(manager, &QNetworkAccessManager::finished,
@@ -30,42 +32,36 @@ void AupClient::updateCheck()
     request.setUrl(url);
     manager->get(request);
 
+    //aup_update_info();
     status = aup_init(&AupClient::prepareUpdate, this);
 }
 
 void AupClient::onNetworkResult(QNetworkReply *reply)
 {
+    //QString update_info;
     if(reply->error()){
         qDebug() << "Error";
         qDebug() << reply->errorString();
     }else{
-        QFile *file = new QFile(QCoreApplication::applicationDirPath() + "/result.json");
+        QFile *file = new QFile(QCoreApplication::applicationDirPath() + "/info.json");
         if(file->open(QFile::WriteOnly)){
+            QJsonDocument json = QJsonDocument::fromJson(reply->readAll());
+            update_info = json.object().value("version").toString() + " " +
+                    json.object().value("url").toString();
+            qDebug() << update_info;
             file->write(reply->readAll());
             file->close();
         }
     }
-
-    int BUFSIZE = 512;
-    LPCTSTR lpNamedPipeName = TEXT("\\\\.\\pipe\\AupInfo");
-    LPTSTR outbuf = TEXT("Message from client");
-    TCHAR inbuf[512];
-    DWORD lpBytesRead;
-    bool res = CallNamedPipe(
-            lpNamedPipeName, // адрес имени канала
-            outbuf,     // адрес буфера для записи
-            (lstrlen(outbuf)+1)*sizeof(TCHAR),  // размер буфера для записи
-            inbuf,      // адрес буфера для чтения
-            BUFSIZE*sizeof(TCHAR),   // размер буфера для чтения
-            &lpBytesRead,     // адрес переменной для записи
-                               // количества прочитанных байт данных
-            20000        // время ожидания в миллисекундах
-            );
-    qDebug() << res << outbuf << inbuf << GetLastError();
-
+    aup_update_info(update_info.toLocal8Bit().data());//.toLocal8Bit().constData()
 }
 
 void AupClient::prepareUpdate(void *context)
 {
     static_cast<AupClient*>(context)->updatebtn->setEnabled(true);
+}
+
+void AupClient::clientUpdate()
+{
+
 }

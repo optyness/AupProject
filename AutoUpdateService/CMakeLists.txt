@@ -10,4 +10,4 @@ find_package(Qt5Widgets)
 add_executable(${PROJECT_NAME} "main.cpp")
 
 include_directories(${Qt5Widgets_INCLUDES})
-target_link_libraries(${PROJECT_NAME} Qt5::Widgets)
+target_link_libraries(${PROJECT_NAME} Qt5::Widgets Urlmon.lib)

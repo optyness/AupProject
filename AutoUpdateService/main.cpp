@@ -2,7 +2,14 @@
 #include <Windows.h>
 #include <fstream>
 #include <tchar.h>
-#include <QtWidgets>
+//#include <QtNetwork/QNetworkAccessManager>
+//#include <QtNetwork/QNetworkReply>
+//#include <QtNetwork/QNetworkRequest>
+//#include <QtWidgets>
+#include <urlmon.h>
+#include <vector>
+#include <sstream>
+#include <iterator>
 
 using namespace std;
 
@@ -87,7 +94,7 @@ void serviceMain(int argc, char** argv){
     TCHAR pchRequest[BUFSIZE];
     TCHAR* pchReply = "Answer";
     BOOL fSuccess = FALSE;
-    DWORD cbBytesRead = 0, cbReplyBytes = 0, cbWritten = 0;
+    DWORD cbBytesRead = 0, cbWritten = 0;
 
     hPipe = CreateNamedPipe(
                 lpszPipeName,
@@ -110,13 +117,26 @@ void serviceMain(int argc, char** argv){
              NULL);        // not overlapped I/O
     addLogMessage(pchRequest);
 
+    istringstream iss(pchRequest);
+    vector<string> tokens{istream_iterator<string>{iss},
+                          istream_iterator<string>{}};
+    HRESULT hr = URLDownloadToFile(NULL, _T(tokens[1].c_str()),
+            _T("c:/example.exe"), 0, NULL);
+//    Writter *writter = new Writter;
+//    QNetworkAccessManager *manager = new QNetworkAccessManager();
+//    QObject::connect(manager, &QNetworkAccessManager::finished,
+//            writter, &Writter::onNetworkResult);
+//    QUrl url(QString::fromStdString(tokens[1]));
+//    QNetworkRequest request;
+//    request.setUrl(url);
+//    manager->get(request);
+
     fSuccess = WriteFile(
              hPipe,        // handle to pipe
              pchReply,     // buffer to write from
              (lstrlen(pchReply)+1)*sizeof(TCHAR), // number of bytes to write
              &cbWritten,   // number of bytes written
              NULL);        // not overlapped I/O
-
 
     return;
 }

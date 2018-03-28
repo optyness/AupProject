@@ -1,7 +1,6 @@
 #ifndef AUPCLIENT_H
 #define AUPCLIENT_H
 
-//#include <QWidget>
 #include <QtWidgets>
 #include <QPushButton>
 #include <QtNetwork/QNetworkAccessManager>
@@ -19,13 +18,14 @@ signals:
 
 public slots:
     void updateCheck();
+    void clientUpdate();
     void onNetworkResult(QNetworkReply *reply);
 
 private:
     AupInitStatus status;
     QPushButton *updatebtn;
     QNetworkAccessManager *manager;
-    QSharedMemory sharedMemory;
+    QString update_info;
 };
 
 #endif // AUPCLIENT_H
