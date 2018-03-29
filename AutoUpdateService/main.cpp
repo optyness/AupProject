@@ -122,14 +122,29 @@ void serviceMain(int argc, char** argv){
                           istream_iterator<string>{}};
     HRESULT hr = URLDownloadToFile(NULL, _T(tokens[1].c_str()),
             _T("c:/example.exe"), 0, NULL);
-//    Writter *writter = new Writter;
-//    QNetworkAccessManager *manager = new QNetworkAccessManager();
-//    QObject::connect(manager, &QNetworkAccessManager::finished,
-//            writter, &Writter::onNetworkResult);
-//    QUrl url(QString::fromStdString(tokens[1]));
-//    QNetworkRequest request;
-//    request.setUrl(url);
-//    manager->get(request);
+
+
+    // additional information
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+
+    // set the size of the structures
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    ZeroMemory(&pi, sizeof(pi));
+    // TO DO: make right directories for installer
+    CreateProcess(
+        _T("path"),// the path
+        NULL,        // Command line
+        NULL,           // Process handle not inheritable
+        NULL,           // Thread handle not inheritable
+        FALSE,          // Set handle inheritance to FALSE
+        0,              // No creation flags
+        NULL,           // Use parent's environment block
+        NULL,           // Use parent's starting directory
+        &si,            // Pointer to STARTUPINFO structure
+        &pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
+        );
 
     fSuccess = WriteFile(
              hPipe,        // handle to pipe
@@ -137,6 +152,8 @@ void serviceMain(int argc, char** argv){
              (lstrlen(pchReply)+1)*sizeof(TCHAR), // number of bytes to write
              &cbWritten,   // number of bytes written
              NULL);        // not overlapped I/O
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
 
     return;
 }

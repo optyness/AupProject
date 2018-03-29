@@ -31,7 +31,7 @@ void AupClient::updateCheck()
     QNetworkRequest request;
     request.setUrl(url);
     manager->get(request);
-
+    //TO DO: apply updater concept
     //aup_update_info();
     status = aup_init(&AupClient::prepareUpdate, this);
 }
