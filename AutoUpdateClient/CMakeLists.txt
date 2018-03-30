@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.9)
 
-project(Aup_ClientApp)
+project(AutoUpdateClient)
 
 # Find includes in corresponding build directories
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -27,5 +27,4 @@ include_directories(${Qt5Widgets_INCLUDES})
 # Use the Widgets module from Qt 5.
 target_link_libraries(${PROJECT_NAME} auplib)
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets)
-target_link_libraries(${PROJECT_NAME} Qt5::Network)#${QT_QTNETWORK_LIBRARY})
-#target_link_libraries(${PROJECT_NAME} QtSolutions_Service-head)
+target_link_libraries(${PROJECT_NAME} Qt5::Network)

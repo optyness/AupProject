@@ -26,7 +26,6 @@ AupClient::AupClient(QWidget *parent) : QWidget(parent)
 
 void AupClient::updateCheck()
 {
-    //проверка наличия обновления через сервис
     QUrl url("http://localhost/aupinfo.json");
     QNetworkRequest request;
     request.setUrl(url);

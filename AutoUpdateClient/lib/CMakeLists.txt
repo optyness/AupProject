@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.9)
 
-project(Aup_Lib)
+project(auplib)
 
 # Find includes in corresponding build directories
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -20,7 +20,9 @@ file(GLOB_RECURSE LIB_SOURCES "*.cpp")
 #        autoupdater.cpp
 #        )
 
-add_library(auplib STATIC ${LIB_HEADERS} ${LIB_SOURCES})
-#target_link_libraries(auplib Qt5::Widgets)
+add_library(${PROJECT_NAME} STATIC ${LIB_HEADERS} ${LIB_SOURCES})
+#set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER autoupdater.h)
 
-#include_directories(${Qt5Widgets_INCLUDES})
+#install(TARGETS ${PROJECT_NAME} DESTINATION lib)
+#file(GLOB HEADERS *.h)
+#install(FILES ${HEADERS} DESTINATION lib)
