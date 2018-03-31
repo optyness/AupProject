@@ -11,7 +11,6 @@ set(CMAKE_AUTOMOC ON)
 find_package(Qt5Widgets)
 find_package(Qt5Network)
 
-#include_directories(serviceh)
 include_directories(lib)
 #link_directories(servicelib)
 

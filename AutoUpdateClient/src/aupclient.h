@@ -6,7 +6,7 @@
 #include <QtNetwork/QNetworkAccessManager>
 #include <QtNetwork/QNetworkReply>
 #include <QtNetwork/QNetworkRequest>
-#include "autoupdater.h"
+#include "lib/autoupdater.h"
 
 class AupClient : public QWidget
 {
