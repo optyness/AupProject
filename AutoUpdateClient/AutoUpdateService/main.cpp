@@ -121,7 +121,7 @@ void serviceMain(int argc, char** argv){
     vector<string> tokens{istream_iterator<string>{iss},
                           istream_iterator<string>{}};
     HRESULT hr = URLDownloadToFile(NULL, _T(tokens[1].c_str()),
-            _T("c:/example.exe"), 0, NULL);
+            _T("../example.exe"), 0, NULL);
 
 
     // additional information
@@ -134,8 +134,8 @@ void serviceMain(int argc, char** argv){
     ZeroMemory(&pi, sizeof(pi));
     // TO DO: make right directories for installer
     CreateProcess(
-        _T("path"),// the path
-        NULL,        // Command line
+        _T("../example.exe"),// the path
+        _T("/S /D=../../"),        // Command line
         NULL,           // Process handle not inheritable
         NULL,           // Thread handle not inheritable
         FALSE,          // Set handle inheritance to FALSE

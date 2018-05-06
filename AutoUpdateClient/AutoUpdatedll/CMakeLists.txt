@@ -25,7 +25,7 @@ add_library(${PROJECT_NAME} SHARED ${DLL_HEADERS} ${DLL_SOURCES})
 
 add_definitions(-DAUPLIB_LIBRARY)
 target_link_libraries(${PROJECT_NAME} Qt5::Core)
-#set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER autoupdater.h)
+set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER autoupdater.h)
 
 #GENERATE_EXPORT_HEADER(${PROJECT_NAME}
 #             BASE_NAME ${PROJECT_NAME}

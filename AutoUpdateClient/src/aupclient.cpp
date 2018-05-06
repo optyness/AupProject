@@ -44,12 +44,13 @@ void AupClient::onNetworkResult(QNetworkReply *reply)
     }else{
         QFile *file = new QFile(QCoreApplication::applicationDirPath() + "/info.json");
         if(file->open(QFile::WriteOnly)){
+//            file->write(reply->readAll());
+//            file->close();
             QJsonDocument json = QJsonDocument::fromJson(reply->readAll());
             update_info = json.object().value("version").toString() + " " +
                     json.object().value("url").toString();
             qDebug() << update_info;
-            file->write(reply->readAll());
-            file->close();
+
         }
     }
     aup_update_info(update_info.toLocal8Bit().data());//.toLocal8Bit().constData()
