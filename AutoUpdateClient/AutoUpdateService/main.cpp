@@ -2,10 +2,6 @@
 #include <Windows.h>
 #include <fstream>
 #include <tchar.h>
-//#include <QtNetwork/QNetworkAccessManager>
-//#include <QtNetwork/QNetworkReply>
-//#include <QtNetwork/QNetworkRequest>
-//#include <QtWidgets>
 #include <urlmon.h>
 #include <vector>
 #include <sstream>
@@ -20,6 +16,7 @@ HANDLE hPipe = INVALID_HANDLE_VALUE;
 #define BUFSIZE 512
 #define service_name TEXT("AutoUpdateService")
 TCHAR servicePath[MAX_PATH];
+    TCHAR path[MAX_PATH];
 
 int addcmdMessage(const char* text)
 {
@@ -28,8 +25,9 @@ int addcmdMessage(const char* text)
 
 int addLogMessage(const char* text)
 {
-    ofstream outputFile("C:\\result.txt");
-    outputFile << text;
+    ofstream outputFile("C:\\result.txt",ios_base::app);
+    outputFile << text << endl;
+    //outputFile << _tcscat(path, "\\update.exe") << _tcscat(" /D=", path);
     outputFile.close();
     return 0;
 }
@@ -90,12 +88,20 @@ void serviceMain(int argc, char** argv){
     SetServiceStatus (serviceStatusHandle, &serviceStatus);
 
     LPSTR  lpszPipeName = "\\\\.\\pipe\\AupInfo";
-    addLogMessage("Start");
     TCHAR pchRequest[BUFSIZE];
-    TCHAR* pchReply = "Answer";
+    TCHAR* pchReply = "START_UPDATE";
+
+    TCHAR extract_path[MAX_PATH];
     BOOL fSuccess = FALSE;
     DWORD cbBytesRead = 0, cbWritten = 0;
 
+    size_t found = string(servicePath).find_last_of("\\");
+    _tcsncpy(path,servicePath,found);
+    found = string(path).find_last_of("\\");
+    _tcsncpy(extract_path,path,++found);
+    _tcscat(path, _T("\\update.exe"));
+
+    addLogMessage("START SERVICE");
     hPipe = CreateNamedPipe(
                 lpszPipeName,
                 PIPE_ACCESS_DUPLEX,
@@ -106,55 +112,111 @@ void serviceMain(int argc, char** argv){
                 0,
                 NULL
                 );
-
-    ConnectNamedPipe(hPipe, NULL);
-
-    fSuccess = ReadFile(
-             hPipe,        // handle to pipe
-             pchRequest,    // buffer to receive data
-             BUFSIZE*sizeof(TCHAR), // size of buffer
-             &cbBytesRead, // number of bytes read
-             NULL);        // not overlapped I/O
-    addLogMessage(pchRequest);
-
-    istringstream iss(pchRequest);
-    vector<string> tokens{istream_iterator<string>{iss},
-                          istream_iterator<string>{}};
-    HRESULT hr = URLDownloadToFile(NULL, _T(tokens[1].c_str()),
-            _T("../example.exe"), 0, NULL);
+    addLogMessage("CREATE PIPE");
 
 
-    // additional information
-    STARTUPINFO si;
-    PROCESS_INFORMATION pi;
+    for(;;){
 
-    // set the size of the structures
-    ZeroMemory(&si, sizeof(si));
-    si.cb = sizeof(si);
-    ZeroMemory(&pi, sizeof(pi));
-    // TO DO: make right directories for installer
-    CreateProcess(
-        _T("../example.exe"),// the path
-        _T("/S /D=../../"),        // Command line
-        NULL,           // Process handle not inheritable
-        NULL,           // Thread handle not inheritable
-        FALSE,          // Set handle inheritance to FALSE
-        0,              // No creation flags
-        NULL,           // Use parent's environment block
-        NULL,           // Use parent's starting directory
-        &si,            // Pointer to STARTUPINFO structure
-        &pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
-        );
+        ConnectNamedPipe(hPipe, NULL);
+        fSuccess = ReadFile(
+                 hPipe,        // handle to pipe
+                 pchRequest,    // buffer to receive data
+                 BUFSIZE*sizeof(TCHAR), // size of buffer
+                 &cbBytesRead, // number of bytes read
+                 NULL);        // not overlapped I/O
+        if(fSuccess){
+            addLogMessage("GOOD");
+        }else{
+            addLogMessage("ERROR");
+            int err = GetLastError();
+            ofstream outputFile("C:\\result.txt",ios_base::app);
+            outputFile << err << endl;
+            outputFile.close();
+        }
 
-    fSuccess = WriteFile(
-             hPipe,        // handle to pipe
-             pchReply,     // buffer to write from
-             (lstrlen(pchReply)+1)*sizeof(TCHAR), // number of bytes to write
-             &cbWritten,   // number of bytes written
-             NULL);        // not overlapped I/O
-    CloseHandle(pi.hProcess);
-    CloseHandle(pi.hThread);
+        if(!_tcscmp(pchRequest,"REQUIRE_UPDATE")){
+            addLogMessage(pchRequest);
+            if(GetFileAttributes(_T("update.exe")) != DWORD(-1)){
+                pchReply = "UPDATE_READY";
+                fSuccess = WriteFile(
+                         hPipe,        // handle to pipe
+                         pchReply,     // buffer to write from
+                         (lstrlen(pchReply)+1)*sizeof(TCHAR), // number of bytes to write
+                         &cbWritten,   // number of bytes written
+                         NULL);        // not overlapped I/O
+            }else{
+                pchReply = "UPDATE_NOT_READY";
+                fSuccess = WriteFile(
+                         hPipe,        // handle to pipe
+                         pchReply,     // buffer to write from
+                         (lstrlen(pchReply)+1)*sizeof(TCHAR), // number of bytes to write
+                         &cbWritten,   // number of bytes written
+                         NULL);        // not overlapped I/O
+            }
+        }else if(!_tcscmp(pchRequest,"START_UPDATE")){
+            addLogMessage(pchRequest);
 
+            // additional information
+
+            TCHAR *cmdArg;
+            _tcscpy(cmdArg, "/S /D=");
+            _tcscat(cmdArg, extract_path);
+
+            STARTUPINFO si;
+            PROCESS_INFORMATION pi;
+
+            // set the size of the structures
+            ZeroMemory(&si, sizeof(si));
+            si.cb = sizeof(si);
+            //ZeroMemory(&pi, sizeof(pi));
+            // TO DO: make right directories for installer
+            if(!CreateProcess(
+                path,// the path
+                cmdArg,        // Command line
+                NULL,           // Process handle not inheritable
+                NULL,           // Thread handle not inheritable
+                FALSE,          // Set handle inheritance to FALSE
+                0,              // No creation flags
+                NULL,           // Use parent's environment block
+                NULL,           // Use parent's starting directory
+                &si,            // Pointer to STARTUPINFO structure
+                &pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
+                        )){
+                int err = GetLastError();
+                ofstream outputFile("C:\\result.txt",ios_base::app);
+                outputFile << err << endl;
+                outputFile.close();
+            }
+
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+    //        pchReply = "UPDATE_STARTED";
+    //        fSuccess = WriteFile(
+    //                 hPipe,        // handle to pipe
+    //                 pchReply,     // buffer to write from
+    //                 (lstrlen(pchReply)+1)*sizeof(TCHAR), // number of bytes to write
+    //                 &cbWritten,   // number of bytes written
+    //                 NULL);        // not overlapped I/O
+        }else{
+            addLogMessage(pchRequest);
+            istringstream iss(pchRequest);
+            vector<string> tokens{istream_iterator<string>{iss},
+                                  istream_iterator<string>{}};
+
+            HRESULT hr = URLDownloadToFile(NULL, _T(tokens[1].c_str()),
+                    path, 0, NULL);
+            pchReply = "UPDATER_DOWNLOADED";
+            fSuccess = WriteFile(
+                     hPipe,        // handle to pipe
+                     pchReply,     // buffer to write from
+                     (lstrlen(pchReply)+1)*sizeof(TCHAR), // number of bytes to write
+                     &cbWritten,   // number of bytes written
+                     NULL);        // not overlapped I/O
+
+        }
+        DisconnectNamedPipe(hPipe);
+    }
+    CloseHandle(hPipe);
     return;
 }
 

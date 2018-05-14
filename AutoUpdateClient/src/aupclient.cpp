@@ -6,7 +6,7 @@ AupClient::AupClient(QWidget *parent) : QWidget(parent)
     QHBoxLayout *layout = new QHBoxLayout();
     QPushButton *checkbtn = new QPushButton("Check for updates");
     updatebtn = new QPushButton("Restart & Update");
-    QLineEdit *versionline = new QLineEdit("0.1");
+    QLineEdit *versionline = new QLineEdit("0.1a");
     versionline->setReadOnly(true);
 
     layout->addWidget(versionline);
@@ -32,7 +32,6 @@ void AupClient::updateCheck()
     manager->get(request);
     //TO DO: apply updater concept
     //aup_update_info();
-    status = aup_init(&AupClient::prepareUpdate, this);
 }
 
 void AupClient::onNetworkResult(QNetworkReply *reply)
@@ -42,18 +41,12 @@ void AupClient::onNetworkResult(QNetworkReply *reply)
         qDebug() << "Error";
         qDebug() << reply->errorString();
     }else{
-        QFile *file = new QFile(QCoreApplication::applicationDirPath() + "/info.json");
-        if(file->open(QFile::WriteOnly)){
-//            file->write(reply->readAll());
-//            file->close();
-            QJsonDocument json = QJsonDocument::fromJson(reply->readAll());
-            update_info = json.object().value("version").toString() + " " +
-                    json.object().value("url").toString();
-            qDebug() << update_info;
-
-        }
+        QJsonDocument json = QJsonDocument::fromJson(reply->readAll());
+        update_info = json.object().value("version").toString() + " " +
+                json.object().value("url").toString();
     }
     aup_update_info(update_info.toLocal8Bit().data());//.toLocal8Bit().constData()
+    status = aup_init(&AupClient::prepareUpdate, this);
 }
 
 void AupClient::prepareUpdate(void *context)
@@ -63,5 +56,8 @@ void AupClient::prepareUpdate(void *context)
 
 void AupClient::clientUpdate()
 {
-
+    QProcess *update_process = new QProcess;
+    update_process->start("./AutoUpdateProgress/AutoUpdateProgress.exe");
+    aup_start_update();
+    QApplication::quit();
 }

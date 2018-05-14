@@ -22,6 +22,7 @@ file(GLOB_RECURSE SOURCES "src/*.cpp")
 add_executable(${PROJECT_NAME} ${HEADERS} ${SOURCES} )
 add_subdirectory(AutoUpdatedll)
 add_subdirectory(AutoUpdateService)
+add_subdirectory(AutoUpdateProgress)
 
 include_directories(${Qt5Widgets_INCLUDES})
 
