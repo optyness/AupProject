@@ -17,9 +17,10 @@ public:
 signals:
 
 public slots:
-    void updateCheck();
-    void clientUpdate();
+    void onUpdateCheck();
+    void onClientUpdate();
     void onNetworkResult(QNetworkReply *reply);
+    void onClientExit();
 
 private:
     AupInitStatus status;

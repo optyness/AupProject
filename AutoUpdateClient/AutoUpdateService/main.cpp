@@ -14,9 +14,9 @@ SERVICE_STATUS_HANDLE serviceStatusHandle;
 HANDLE hPipe = INVALID_HANDLE_VALUE;
 
 #define BUFSIZE 512
+#define VERSIZE 12
 #define service_name TEXT("AutoUpdateService")
 TCHAR servicePath[MAX_PATH];
-    TCHAR path[MAX_PATH];
 
 int addcmdMessage(const char* text)
 {
@@ -89,17 +89,25 @@ void serviceMain(int argc, char** argv){
 
     LPSTR  lpszPipeName = "\\\\.\\pipe\\AupInfo";
     TCHAR pchRequest[BUFSIZE];
-    TCHAR* pchReply = "START_UPDATE";
+    TCHAR* pchReply = "UNDEFINED";
 
     TCHAR extract_path[MAX_PATH];
     BOOL fSuccess = FALSE;
     DWORD cbBytesRead = 0, cbWritten = 0;
 
-    size_t found = string(servicePath).find_last_of("\\");
-    _tcsncpy(path,servicePath,found);
-    found = string(path).find_last_of("\\");
-    _tcsncpy(extract_path,path,++found);
-    _tcscat(path, _T("\\update.exe"));
+    ofstream outputFile("C:\\result.txt");
+    outputFile.close();
+
+    TCHAR inst_path[MAX_PATH];
+    GetEnvironmentVariable("PROGRAMFILES", inst_path, MAX_PATH);
+    _tcscat(inst_path, "\\update.exe");
+    addLogMessage(inst_path);
+
+//    size_t found = string(servicePath).find_last_of("\\");
+//    _tcsncpy(path,servicePath,found);
+//    found = string(path).find_last_of("\\");
+//    _tcsncpy(extract_path,path,++found);
+//    _tcscat(path, _T("\\update.exe"));
 
     addLogMessage("START SERVICE");
     hPipe = CreateNamedPipe(
@@ -112,32 +120,35 @@ void serviceMain(int argc, char** argv){
                 0,
                 NULL
                 );
+    ConnectNamedPipe(hPipe, NULL);
     addLogMessage("CREATE PIPE");
 
 
     for(;;){
 
-        ConnectNamedPipe(hPipe, NULL);
-        fSuccess = ReadFile(
-                 hPipe,        // handle to pipe
-                 pchRequest,    // buffer to receive data
-                 BUFSIZE*sizeof(TCHAR), // size of buffer
-                 &cbBytesRead, // number of bytes read
-                 NULL);        // not overlapped I/O
-        if(fSuccess){
-            addLogMessage("GOOD");
-        }else{
-            addLogMessage("ERROR");
+        if(!ReadFile(hPipe,          // handle to pipe
+               pchRequest,          // buffer to receive data
+               BUFSIZE*sizeof(TCHAR), // size of buffer
+               &cbBytesRead,        // number of bytes read
+               NULL                 // not overlapped I/O){
+        )){
             int err = GetLastError();
             ofstream outputFile("C:\\result.txt",ios_base::app);
             outputFile << err << endl;
             outputFile.close();
+            if(err == 109){
+                DisconnectNamedPipe(hPipe);
+                ConnectNamedPipe(hPipe, NULL);
+            }else{
+                return;
+            }
         }
 
         if(!_tcscmp(pchRequest,"REQUIRE_UPDATE")){
             addLogMessage(pchRequest);
-            if(GetFileAttributes(_T("update.exe")) != DWORD(-1)){
+            if(GetFileAttributes(inst_path) != DWORD(-1)){
                 pchReply = "UPDATE_READY";
+                addLogMessage(pchReply);
                 fSuccess = WriteFile(
                          hPipe,        // handle to pipe
                          pchReply,     // buffer to write from
@@ -146,6 +157,7 @@ void serviceMain(int argc, char** argv){
                          NULL);        // not overlapped I/O
             }else{
                 pchReply = "UPDATE_NOT_READY";
+                addLogMessage(pchReply);
                 fSuccess = WriteFile(
                          hPipe,        // handle to pipe
                          pchReply,     // buffer to write from
@@ -155,9 +167,7 @@ void serviceMain(int argc, char** argv){
             }
         }else if(!_tcscmp(pchRequest,"START_UPDATE")){
             addLogMessage(pchRequest);
-
             // additional information
-
             TCHAR *cmdArg;
             _tcscpy(cmdArg, "/S /D=");
             _tcscat(cmdArg, extract_path);
@@ -171,7 +181,7 @@ void serviceMain(int argc, char** argv){
             //ZeroMemory(&pi, sizeof(pi));
             // TO DO: make right directories for installer
             if(!CreateProcess(
-                path,// the path
+                inst_path,// the path
                 cmdArg,        // Command line
                 NULL,           // Process handle not inheritable
                 NULL,           // Thread handle not inheritable
@@ -181,7 +191,7 @@ void serviceMain(int argc, char** argv){
                 NULL,           // Use parent's starting directory
                 &si,            // Pointer to STARTUPINFO structure
                 &pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
-                        )){
+            )){
                 int err = GetLastError();
                 ofstream outputFile("C:\\result.txt",ios_base::app);
                 outputFile << err << endl;
@@ -190,31 +200,73 @@ void serviceMain(int argc, char** argv){
 
             CloseHandle(pi.hProcess);
             CloseHandle(pi.hThread);
-    //        pchReply = "UPDATE_STARTED";
-    //        fSuccess = WriteFile(
-    //                 hPipe,        // handle to pipe
-    //                 pchReply,     // buffer to write from
-    //                 (lstrlen(pchReply)+1)*sizeof(TCHAR), // number of bytes to write
-    //                 &cbWritten,   // number of bytes written
-    //                 NULL);        // not overlapped I/O
         }else{
             addLogMessage(pchRequest);
+            DWORD bufferSize = VERSIZE;
+            TCHAR currentVersion[VERSIZE];
+            TCHAR keyName[] = "SOFTWARE\\";
+
             istringstream iss(pchRequest);
             vector<string> tokens{istream_iterator<string>{iss},
                                   istream_iterator<string>{}};
 
-            HRESULT hr = URLDownloadToFile(NULL, _T(tokens[1].c_str()),
-                    path, 0, NULL);
-            pchReply = "UPDATER_DOWNLOADED";
-            fSuccess = WriteFile(
-                     hPipe,        // handle to pipe
-                     pchReply,     // buffer to write from
-                     (lstrlen(pchReply)+1)*sizeof(TCHAR), // number of bytes to write
-                     &cbWritten,   // number of bytes written
-                     NULL);        // not overlapped I/O
+            _tcscat(keyName, tokens[2].c_str());
+            RegGetValue(HKEY_LOCAL_MACHINE,
+                        keyName,
+                        "Version",
+                        RRF_RT_ANY,
+                        NULL,
+                        currentVersion,
+                        &bufferSize);
+            addLogMessage(currentVersion);
 
+//            ostringstream stream;
+//            stream << inst_path << "\\" << tokens[2].c_str() << ".exe";
+
+//            _tcscpy(inst_path, stream.str().c_str());
+
+//            DWORD infoSize = 0;
+//            void *fileInfo;
+//            VS_FIXEDFILEINFO *verInfo;
+//            LPBYTE lpBuffer  = NULL;
+//            UINT size = 0;
+//            DWORD verSize = GetFileVersionInfoSize(inst_path,
+//                                   &infoSize);
+//            GetFileVersionInfo(inst_path,
+//                               infoSize,
+//                               verSize,
+//                               fileInfo);
+//            VerQueryValue(fileInfo,
+//                          "\\",
+//                          (LPVOID*)&verInfo,
+//                          &size);
+//            VS_FIXEDFILEINFO *verInfo = (VS_FIXEDFILEINFO *)lpBuffer;
+
+//            int revision = HIWORD(verInfo->dwProductVersionLS);
+//            int build = LOWORD(verInfo->dwProductVersionLS);
+
+//            ofstream outputFile("C:\\result.txt",ios_base::app);
+//            outputFile << HIWORD(verInfo->dwProductVersionMS) << endl;
+//            outputFile << LOWORD(verInfo->dwProductVersionMS) << endl;
+//            outputFile.close();
+
+//            delete[] fileInfo;
+
+            if(_tcscmp(tokens[0].c_str(),currentVersion) > 0){
+//                if(GetFileAttributes(inst_path) == DWORD(-1)){
+                    HRESULT hr = URLDownloadToFile(NULL, _T(tokens[1].c_str()),
+                            inst_path, 0, NULL);
+//                }
+            }
+//            pchReply = "UPDATE_DOWNLOADED";
+//            fSuccess = WriteFile(
+//                     hPipe,        // handle to pipe
+//                     pchReply,     // buffer to write from
+//                     (lstrlen(pchReply)+1)*sizeof(TCHAR), // number of bytes to write
+//                     &cbWritten,   // number of bytes written
+//                     NULL);        // not overlapped I/O
         }
-        DisconnectNamedPipe(hPipe);
+        //DisconnectNamedPipe(hPipe);
     }
     CloseHandle(hPipe);
     return;

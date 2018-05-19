@@ -1,4 +1,5 @@
 {
 	"version": "1.0.1",
-	"url": "http://localhost/aupinstall-1.01.exe"
+	"url": "http://localhost/aupinstall-1.0.1.exe",
+	"name": "AutoUpdateClient"
 }

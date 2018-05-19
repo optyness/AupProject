@@ -15,16 +15,19 @@ AupClient::AupClient(QWidget *parent) : QWidget(parent)
     setLayout(layout);
     updatebtn->setEnabled(false);
     connect(checkbtn, &QPushButton::clicked,
-            this, &AupClient::updateCheck);
+            this, &AupClient::onUpdateCheck);
     connect(updatebtn, &QPushButton::clicked,
-            this, &AupClient::clientUpdate);
+            this, &AupClient::onClientUpdate);
 
     manager = new QNetworkAccessManager(this);
     connect(manager, &QNetworkAccessManager::finished,
             this, &AupClient::onNetworkResult);
+    connect(qApp,&QApplication::aboutToQuit,
+            this,&AupClient::onClientExit);
+    //status = aup_init(&AupClient::prepareUpdate, this);
 }
 
-void AupClient::updateCheck()
+void AupClient::onUpdateCheck()
 {
     QUrl url("http://localhost/aupinfo.json");
     QNetworkRequest request;
@@ -36,17 +39,22 @@ void AupClient::updateCheck()
 
 void AupClient::onNetworkResult(QNetworkReply *reply)
 {
-    //QString update_info;
     if(reply->error()){
         qDebug() << "Error";
         qDebug() << reply->errorString();
     }else{
         QJsonDocument json = QJsonDocument::fromJson(reply->readAll());
         update_info = json.object().value("version").toString() + " " +
-                json.object().value("url").toString();
+                json.object().value("url").toString() + " " +
+                json.object().value("name").toString();
     }
     aup_update_info(update_info.toLocal8Bit().data());//.toLocal8Bit().constData()
     status = aup_init(&AupClient::prepareUpdate, this);
+}
+
+void AupClient::onClientExit()
+{
+    aup_shutdown();
 }
 
 void AupClient::prepareUpdate(void *context)
@@ -54,7 +62,7 @@ void AupClient::prepareUpdate(void *context)
     static_cast<AupClient*>(context)->updatebtn->setEnabled(true);
 }
 
-void AupClient::clientUpdate()
+void AupClient::onClientUpdate()
 {
     QProcess *update_process = new QProcess;
     update_process->start("./AutoUpdateProgress/AutoUpdateProgress.exe");
