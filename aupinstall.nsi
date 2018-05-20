@@ -1,5 +1,5 @@
 !define PRODUCT_NAME "aupinstall"
-!define PRODUCT_VERSION "1.0.1"
+!define PRODUCT_VERSION "1.0.2"
 !define pkgdir "C:\Qt\Qt_project\build-AutoUpdateClient-Desktop_Qt_5_9_1_MSVC2015_64bit-Release"
 
 VIProductVersion 1.0.1.0

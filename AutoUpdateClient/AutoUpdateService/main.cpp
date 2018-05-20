@@ -91,7 +91,6 @@ void serviceMain(int argc, char** argv){
     TCHAR pchRequest[BUFSIZE];
     TCHAR* pchReply = "UNDEFINED";
 
-    TCHAR extract_path[MAX_PATH];
     BOOL fSuccess = FALSE;
     DWORD cbBytesRead = 0, cbWritten = 0;
 
@@ -167,11 +166,24 @@ void serviceMain(int argc, char** argv){
             }
         }else if(!_tcscmp(pchRequest,"START_UPDATE")){
             addLogMessage(pchRequest);
+
+            DWORD bufferSize = MAX_PATH;
+            TCHAR extract_path[MAX_PATH];
+            TCHAR keyName[] = "SOFTWARE\\";
+            _tcscat(keyName, "AutoUpdateClient");
+            RegGetValue(HKEY_LOCAL_MACHINE,
+                        keyName,
+                        "InstallDir",
+                        RRF_RT_ANY,
+                        NULL,
+                        extract_path,
+                        &bufferSize);
             // additional information
-            TCHAR *cmdArg;
+            TCHAR cmdArg[MAX_PATH];
             _tcscpy(cmdArg, "/S /D=");
             _tcscat(cmdArg, extract_path);
 
+            addLogMessage(cmdArg);
             STARTUPINFO si;
             PROCESS_INFORMATION pi;
 
@@ -179,7 +191,6 @@ void serviceMain(int argc, char** argv){
             ZeroMemory(&si, sizeof(si));
             si.cb = sizeof(si);
             //ZeroMemory(&pi, sizeof(pi));
-            // TO DO: make right directories for installer
             if(!CreateProcess(
                 inst_path,// the path
                 cmdArg,        // Command line
@@ -197,10 +208,11 @@ void serviceMain(int argc, char** argv){
                 outputFile << err << endl;
                 outputFile.close();
             }
-
+            addLogMessage("PROGRESS");
             CloseHandle(pi.hProcess);
             CloseHandle(pi.hThread);
         }else{
+            //-------------message with update information
             addLogMessage(pchRequest);
             DWORD bufferSize = VERSIZE;
             TCHAR currentVersion[VERSIZE];
@@ -258,13 +270,6 @@ void serviceMain(int argc, char** argv){
                             inst_path, 0, NULL);
 //                }
             }
-//            pchReply = "UPDATE_DOWNLOADED";
-//            fSuccess = WriteFile(
-//                     hPipe,        // handle to pipe
-//                     pchReply,     // buffer to write from
-//                     (lstrlen(pchReply)+1)*sizeof(TCHAR), // number of bytes to write
-//                     &cbWritten,   // number of bytes written
-//                     NULL);        // not overlapped I/O
         }
         //DisconnectNamedPipe(hPipe);
     }

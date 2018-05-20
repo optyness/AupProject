@@ -1,12 +1,12 @@
 #include "aupclient.h"
 
-AupClient::AupClient(QWidget *parent) : QWidget(parent)
+AupClient::AupClient(QWidget *parent) : QWidget(parent), exitFlag(false)
 {
     resize(500,70);
     QHBoxLayout *layout = new QHBoxLayout();
     QPushButton *checkbtn = new QPushButton("Check for updates");
     updatebtn = new QPushButton("Restart & Update");
-    QLineEdit *versionline = new QLineEdit("0.1a");
+    QLineEdit *versionline = new QLineEdit("1.0.2");
     versionline->setReadOnly(true);
 
     layout->addWidget(versionline);
@@ -24,7 +24,12 @@ AupClient::AupClient(QWidget *parent) : QWidget(parent)
             this, &AupClient::onNetworkResult);
     connect(qApp,&QApplication::aboutToQuit,
             this,&AupClient::onClientExit);
-    //status = aup_init(&AupClient::prepareUpdate, this);
+
+    status = aup_init(&AupClient::prepareUpdate, this);
+    if(status == AupRequireAppExit){
+        onClientUpdate();
+        exitFlag = true;
+    }
 }
 
 void AupClient::onUpdateCheck()
@@ -60,6 +65,11 @@ void AupClient::onClientExit()
 void AupClient::prepareUpdate(void *context)
 {
     static_cast<AupClient*>(context)->updatebtn->setEnabled(true);
+}
+
+bool AupClient::requireExit()
+{
+    return exitFlag;
 }
 
 void AupClient::onClientUpdate()

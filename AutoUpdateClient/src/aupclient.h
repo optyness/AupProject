@@ -14,6 +14,7 @@ class AupClient : public QWidget
 public:
     explicit AupClient(QWidget *parent = nullptr);
     static void prepareUpdate(void *context);
+    bool requireExit();
 signals:
 
 public slots:
@@ -27,6 +28,7 @@ private:
     QPushButton *updatebtn;
     QNetworkAccessManager *manager;
     QString update_info;
+    bool exitFlag;
 };
 
 #endif // AUPCLIENT_H

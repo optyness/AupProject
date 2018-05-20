@@ -119,6 +119,5 @@ void aup_start_update()
 
 void aup_shutdown()
 {
-    qDebug() << "Exec exit code";
     CloseHandle(g_hPipe);
 }
