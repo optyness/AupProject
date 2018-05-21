@@ -7,8 +7,6 @@
 #include <sstream>
 #include <iterator>
 
-using namespace std;
-
 SERVICE_STATUS serviceStatus;
 SERVICE_STATUS_HANDLE serviceStatusHandle;
 HANDLE hPipe = INVALID_HANDLE_VALUE;
@@ -18,18 +16,27 @@ HANDLE hPipe = INVALID_HANDLE_VALUE;
 #define service_name TEXT("AutoUpdateService")
 TCHAR servicePath[MAX_PATH];
 
+class Logger {
+public:
+    Logger(const char* file){
+        outputFile.open(file);
+    }
+    ~Logger(){
+        outputFile.close();
+    }
+    void addMessage(const char* text){
+        outputFile << text << std::endl;
+    }
+    void addMessage(const int num){
+        outputFile << num << std::endl;
+    }
+private:
+    std::ofstream outputFile;
+};
+
 int addcmdMessage(const char* text)
 {
     return printf(text);
-}
-
-int addLogMessage(const char* text)
-{
-    ofstream outputFile("C:\\result.txt",ios_base::app);
-    outputFile << text << endl;
-    //outputFile << _tcscat(path, "\\update.exe") << _tcscat(" /D=", path);
-    outputFile.close();
-    return 0;
 }
 
 void controlHandler(DWORD request){
@@ -94,13 +101,13 @@ void serviceMain(int argc, char** argv){
     BOOL fSuccess = FALSE;
     DWORD cbBytesRead = 0, cbWritten = 0;
 
-    ofstream outputFile("C:\\result.txt");
-    outputFile.close();
+    //ofstream outputFile("C:\\result.txt");
+    Logger logger("C:\\result.txt");
 
     TCHAR inst_path[MAX_PATH];
     GetEnvironmentVariable("PROGRAMFILES", inst_path, MAX_PATH);
-    _tcscat(inst_path, "\\update.exe");
-    addLogMessage(inst_path);
+    _tcscat_s(inst_path, "\\update.exe");
+    logger.addMessage(inst_path);
 
 //    size_t found = string(servicePath).find_last_of("\\");
 //    _tcsncpy(path,servicePath,found);
@@ -108,7 +115,7 @@ void serviceMain(int argc, char** argv){
 //    _tcsncpy(extract_path,path,++found);
 //    _tcscat(path, _T("\\update.exe"));
 
-    addLogMessage("START SERVICE");
+    logger.addMessage("START SERVICE");
     hPipe = CreateNamedPipe(
                 lpszPipeName,
                 PIPE_ACCESS_DUPLEX,
@@ -120,8 +127,7 @@ void serviceMain(int argc, char** argv){
                 NULL
                 );
     ConnectNamedPipe(hPipe, NULL);
-    addLogMessage("CREATE PIPE");
-
+    logger.addMessage("CREATE PIPE");
 
     for(;;){
 
@@ -132,9 +138,7 @@ void serviceMain(int argc, char** argv){
                NULL                 // not overlapped I/O){
         )){
             int err = GetLastError();
-            ofstream outputFile("C:\\result.txt",ios_base::app);
-            outputFile << err << endl;
-            outputFile.close();
+            logger.addMessage(err);
             if(err == 109){
                 DisconnectNamedPipe(hPipe);
                 ConnectNamedPipe(hPipe, NULL);
@@ -144,10 +148,10 @@ void serviceMain(int argc, char** argv){
         }
 
         if(!_tcscmp(pchRequest,"REQUIRE_UPDATE")){
-            addLogMessage(pchRequest);
+            logger.addMessage(pchRequest);
             if(GetFileAttributes(inst_path) != DWORD(-1)){
                 pchReply = "UPDATE_READY";
-                addLogMessage(pchReply);
+                logger.addMessage(pchReply);
                 fSuccess = WriteFile(
                          hPipe,        // handle to pipe
                          pchReply,     // buffer to write from
@@ -156,7 +160,7 @@ void serviceMain(int argc, char** argv){
                          NULL);        // not overlapped I/O
             }else{
                 pchReply = "UPDATE_NOT_READY";
-                addLogMessage(pchReply);
+                logger.addMessage(pchReply);
                 fSuccess = WriteFile(
                          hPipe,        // handle to pipe
                          pchReply,     // buffer to write from
@@ -165,12 +169,11 @@ void serviceMain(int argc, char** argv){
                          NULL);        // not overlapped I/O
             }
         }else if(!_tcscmp(pchRequest,"START_UPDATE")){
-            addLogMessage(pchRequest);
-
+            logger.addMessage(pchRequest);
             DWORD bufferSize = MAX_PATH;
             TCHAR extract_path[MAX_PATH];
             TCHAR keyName[] = "SOFTWARE\\";
-            _tcscat(keyName, "AutoUpdateClient");
+            _tcscat_s(keyName, "AutoUpdateClient");
             RegGetValue(HKEY_LOCAL_MACHINE,
                         keyName,
                         "InstallDir",
@@ -180,20 +183,18 @@ void serviceMain(int argc, char** argv){
                         &bufferSize);
             // additional information
             TCHAR cmdArg[MAX_PATH];
-            _tcscpy(cmdArg, "/S /D=");
-            _tcscat(cmdArg, extract_path);
+            _tcscpy_s(cmdArg, "/S /D=");
+            _tcscat_s(cmdArg, extract_path);
 
-            addLogMessage(cmdArg);
+            logger.addMessage(cmdArg);
             STARTUPINFO si;
             PROCESS_INFORMATION pi;
 
-            // set the size of the structures
             ZeroMemory(&si, sizeof(si));
             si.cb = sizeof(si);
-            //ZeroMemory(&pi, sizeof(pi));
             if(!CreateProcess(
-                inst_path,// the path
-                cmdArg,        // Command line
+                inst_path,      // the path
+                cmdArg,         // Command line
                 NULL,           // Process handle not inheritable
                 NULL,           // Thread handle not inheritable
                 FALSE,          // Set handle inheritance to FALSE
@@ -204,25 +205,23 @@ void serviceMain(int argc, char** argv){
                 &pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
             )){
                 int err = GetLastError();
-                ofstream outputFile("C:\\result.txt",ios_base::app);
-                outputFile << err << endl;
-                outputFile.close();
+                logger.addMessage(err);
             }
-            addLogMessage("PROGRESS");
+//            addLogMessage("PROGRESS");
             CloseHandle(pi.hProcess);
             CloseHandle(pi.hThread);
         }else{
             //-------------message with update information
-            addLogMessage(pchRequest);
+            logger.addMessage(pchRequest);
             DWORD bufferSize = VERSIZE;
             TCHAR currentVersion[VERSIZE];
             TCHAR keyName[] = "SOFTWARE\\";
 
-            istringstream iss(pchRequest);
-            vector<string> tokens{istream_iterator<string>{iss},
-                                  istream_iterator<string>{}};
+            std::istringstream iss(pchRequest);
+            std::vector<std::string> tokens{std::istream_iterator<std::string>{iss},
+                                  std::istream_iterator<std::string>{}};
 
-            _tcscat(keyName, tokens[2].c_str());
+            _tcscat_s(keyName, tokens[2].c_str());
             RegGetValue(HKEY_LOCAL_MACHINE,
                         keyName,
                         "Version",
@@ -230,7 +229,7 @@ void serviceMain(int argc, char** argv){
                         NULL,
                         currentVersion,
                         &bufferSize);
-            addLogMessage(currentVersion);
+//            addLogMessage(currentVersion);
 
 //            ostringstream stream;
 //            stream << inst_path << "\\" << tokens[2].c_str() << ".exe";
@@ -332,7 +331,7 @@ int installService(){
     CloseServiceHandle(hService);
 
     CloseServiceHandle(hSCManager);
-    addcmdMessage("Success install service!");
+    addcmdMessage("Success install service");
     return 0;
 }
 
@@ -352,7 +351,7 @@ int removeService(){
     DeleteService(hService);
     CloseServiceHandle(hService);
     CloseServiceHandle(hSCManager);
-    addcmdMessage("Success remove service!");
+    addcmdMessage("Success remove service");
     return 0;
 }
 
@@ -365,8 +364,19 @@ int startAupService() {
     SC_HANDLE hService = OpenService(hSCManager, service_name, SERVICE_START);
     if(!StartService(hService, 0, NULL)){
         CloseServiceHandle(hSCManager);
-        //addLogMessage("Error: Can't start service");
-        int err = GetLastError();
+//        LPVOID lpMsgBuf;
+        DWORD dw = GetLastError();
+//        FormatMessage(
+//                FORMAT_MESSAGE_ALLOCATE_BUFFER |
+//                FORMAT_MESSAGE_FROM_SYSTEM |
+//                FORMAT_MESSAGE_IGNORE_INSERTS,
+//                NULL,
+//                dw,
+//                MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+//                (LPTSTR) &lpMsgBuf,
+//                0, NULL );
+//        addcmdMessage((LPSTR)lpMsgBuf);
+//        std::cout << (LPCTSTR)lpMsgBuf;
         switch(err){
             case ERROR_ACCESS_DENIED:
                 addcmdMessage("Error: ERROR_ACCESS_DENIED");
@@ -409,6 +419,7 @@ int startAupService() {
                 printf(" %d", err);
                 break;
         }
+        LocalFree(lpMsgBuf);
         return -1;
     }
     //addLogMessage("Start service");
@@ -444,36 +455,21 @@ int setEnableAutoStart(bool flag){
                     SERVICE_NO_CHANGE,
                     SERVICE_AUTO_START,
                     SERVICE_NO_CHANGE,
-                    NULL,
-                    NULL,
-                    NULL,
-                    NULL,
-                    NULL,
-                    NULL,
-                    NULL
-                    );
+                    NULL, NULL, NULL, NULL, NULL, NULL, NULL);
     }else{
         ChangeServiceConfig(
                     hService,
                     SERVICE_NO_CHANGE,
                     SERVICE_DEMAND_START,
                     SERVICE_NO_CHANGE,
-                    NULL,
-                    NULL,
-                    NULL,
-                    NULL,
-                    NULL,
-                    NULL,
-                    NULL
-                    );
+                    NULL, NULL, NULL, NULL, NULL, NULL, NULL);
     }
-
     CloseServiceHandle(hService);
     CloseServiceHandle(hSCManager);
     return 0;
 }
 
-int main(int argc, _TCHAR* argv[])
+int _tmain(int argc, _TCHAR* argv[])
 {
     GetModuleFileName(NULL, servicePath, MAX_PATH);
 
@@ -482,8 +478,7 @@ int main(int argc, _TCHAR* argv[])
         ServiceTable[0].lpServiceName = service_name;
         ServiceTable[0].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)serviceMain;
 
-        if(!StartServiceCtrlDispatcher(ServiceTable)) {
-            addcmdMessage("Error: StartServiceCtrlDispatcher");
+        if(!StartServiceCtrlDispatcher(ServiceTable)){
             int err = GetLastError();
             switch(err){
             case ERROR_FAILED_SERVICE_CONTROLLER_CONNECT:
@@ -500,6 +495,15 @@ int main(int argc, _TCHAR* argv[])
                 break;
             }
         }
+    }else if(_tcscmp(argv[argc-1], _T("--help")) == 0){
+        addcmdMessage("\n--help         - show command list"
+                      "\n--install      - install service"
+                      "\n--uninstall    - uninstall service"
+                      "\n--start        - start service "
+                      "\n--installstart - install and start service"
+                      "\n--stop         - stop service"
+                      "\n--autostart    - enable autostart"
+                      "\n--noautostart  - disable autostart");
     }else if(_tcscmp(argv[argc-1], _T("--install")) == 0){
         installService();
     }else if(_tcscmp(argv[argc-1], _T("--uninstall")) == 0){

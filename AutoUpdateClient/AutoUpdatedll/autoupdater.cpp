@@ -59,8 +59,8 @@ AupInitStatus aup_init(aup_callback_fn callback, void* context)
 void aup_update_info(char *update_info)
 {
     LPCTSTR lpNamedPipeName = TEXT("\\\\.\\pipe\\AupInfo");
-    TCHAR inbuf[BUFSIZE];
-    DWORD lpBytesRead;
+//    TCHAR inbuf[BUFSIZE];
+//    DWORD lpBytesRead;
     DWORD cbWritten = 0;
     BOOL wSuccess = FALSE;
     if(g_hPipe == INVALID_HANDLE_VALUE)

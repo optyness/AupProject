@@ -38,8 +38,6 @@ void AupClient::onUpdateCheck()
     QNetworkRequest request;
     request.setUrl(url);
     manager->get(request);
-    //TO DO: apply updater concept
-    //aup_update_info();
 }
 
 void AupClient::onNetworkResult(QNetworkReply *reply)
@@ -53,6 +51,7 @@ void AupClient::onNetworkResult(QNetworkReply *reply)
                 json.object().value("url").toString() + " " +
                 json.object().value("name").toString();
     }
+    reply->deleteLater();
     aup_update_info(update_info.toLocal8Bit().data());//.toLocal8Bit().constData()
     status = aup_init(&AupClient::prepareUpdate, this);
 }
