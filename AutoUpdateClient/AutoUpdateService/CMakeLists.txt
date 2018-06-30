@@ -7,7 +7,7 @@ set(CMAKE_AUTOMOC ON)
 
 find_package(Qt5Widgets)
 
-add_executable(${PROJECT_NAME} "main.cpp")
+add_executable(${PROJECT_NAME} "main.cpp" "serviceinit.cpp" "serviceinit.h")
 
 include_directories(${Qt5Widgets_INCLUDES})
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets Urlmon.lib)

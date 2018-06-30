@@ -5,7 +5,7 @@ AupClient::AupClient(QWidget *parent) : QWidget(parent), exitFlag(false)
     resize(500,70);
     QHBoxLayout *layout = new QHBoxLayout();
     QPushButton *checkbtn = new QPushButton("Check for updates");
-    updatebtn = new QPushButton("Restart & Update");
+    updatebtn = new QPushButton("Restart Update");
     QLineEdit *versionline = new QLineEdit("1.0.2");
     versionline->setReadOnly(true);
 
@@ -51,9 +51,9 @@ void AupClient::onNetworkResult(QNetworkReply *reply)
                 json.object().value("url").toString() + " " +
                 json.object().value("name").toString();
     }
-    reply->deleteLater();
     aup_update_info(update_info.toLocal8Bit().data());//.toLocal8Bit().constData()
     status = aup_init(&AupClient::prepareUpdate, this);
+    reply->deleteLater();
 }
 
 void AupClient::onClientExit()
@@ -73,8 +73,6 @@ bool AupClient::requireExit()
 
 void AupClient::onClientUpdate()
 {
-    QProcess *update_process = new QProcess;
-    update_process->start("./AutoUpdateProgress/AutoUpdateProgress.exe");
     aup_start_update();
     QApplication::quit();
 }

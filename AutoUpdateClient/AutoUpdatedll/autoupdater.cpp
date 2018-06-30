@@ -2,6 +2,7 @@
 #include "Windows.h"
 #include <tchar.h>
 #include <QDebug>
+#include <QProcess>
 
 #define BUFSIZE 512
 HANDLE g_hPipe = INVALID_HANDLE_VALUE;
@@ -38,16 +39,6 @@ AupInitStatus aup_init(aup_callback_fn callback, void* context)
              BUFSIZE*sizeof(TCHAR), // size of buffer
              &cbBytesRead, // number of bytes read
              NULL);        // not overlapped I/O
-//    fSuccess = CallNamedPipe(
-//            lpNamedPipeName, // адрес имени канала
-//            outbuf,     // адрес буфера для записи
-//            (lstrlen(outbuf)+1)*sizeof(TCHAR),  // размер буфера для записи
-//            inbuf,      // адрес буфера для чтения
-//            BUFSIZE*sizeof(TCHAR),   // размер буфера для чтения
-//            &lpBytesRead,     // адрес переменной для записи
-//                               // количества прочитанных байт данных
-//            10000        // время ожидания в миллисекундах
-//            );
     if(!_tcscmp(inbuf,"UPDATE_READY")){
         callback(context);
         return AupRequireAppExit;
@@ -94,6 +85,8 @@ void aup_update_info(char *update_info)
 
 void aup_start_update()
 {
+    QProcess *update_process = new QProcess;
+    update_process->start("./AutoUpdateProgress/AutoUpdateProgress.exe");
     LPCTSTR lpNamedPipeName = TEXT("\\\\.\\pipe\\AupInfo");
     LPTSTR outbuf = TEXT("START_UPDATE");
     DWORD cbWritten = 0;

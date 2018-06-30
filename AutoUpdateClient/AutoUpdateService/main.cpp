@@ -1,38 +1,12 @@
 #include <iostream>
 #include <Windows.h>
-#include <fstream>
-#include <tchar.h>
-#include <urlmon.h>
-#include <vector>
-#include <sstream>
-#include <iterator>
+#include <serviceinit.h>
 
 SERVICE_STATUS serviceStatus;
 SERVICE_STATUS_HANDLE serviceStatusHandle;
-HANDLE hPipe = INVALID_HANDLE_VALUE;
 
-#define BUFSIZE 512
-#define VERSIZE 12
 #define service_name TEXT("AutoUpdateService")
 TCHAR servicePath[MAX_PATH];
-
-class Logger {
-public:
-    Logger(const char* file){
-        outputFile.open(file);
-    }
-    ~Logger(){
-        outputFile.close();
-    }
-    void addMessage(const char* text){
-        outputFile << text << std::endl;
-    }
-    void addMessage(const int num){
-        outputFile << num << std::endl;
-    }
-private:
-    std::ofstream outputFile;
-};
 
 int addcmdMessage(const char* text)
 {
@@ -67,8 +41,7 @@ void controlHandler(DWORD request){
 }
 
 void serviceMain(int argc, char** argv){
-    //int error;
-    int i = 0;
+    int error;
 
     serviceStatus.dwServiceType    = SERVICE_WIN32_OWN_PROCESS;
     serviceStatus.dwCurrentState    = SERVICE_START_PENDING;
@@ -83,196 +56,17 @@ void serviceMain(int argc, char** argv){
         return;
     }
 
-//    error = InitService();
-//    if (error){
-//        serviceStatus.dwCurrentState    = SERVICE_STOPPED;
-//        serviceStatus.dwWin32ExitCode   = -1;
-//        SetServiceStatus(serviceStatusHandle, &serviceStatus);
-//        return;
-//    }
-
     serviceStatus.dwCurrentState = SERVICE_RUNNING;
     SetServiceStatus (serviceStatusHandle, &serviceStatus);
 
-    LPSTR  lpszPipeName = "\\\\.\\pipe\\AupInfo";
-    TCHAR pchRequest[BUFSIZE];
-    TCHAR* pchReply = "UNDEFINED";
-
-    BOOL fSuccess = FALSE;
-    DWORD cbBytesRead = 0, cbWritten = 0;
-
-    //ofstream outputFile("C:\\result.txt");
-    Logger logger("C:\\result.txt");
-
-    TCHAR inst_path[MAX_PATH];
-    GetEnvironmentVariable("PROGRAMFILES", inst_path, MAX_PATH);
-    _tcscat_s(inst_path, "\\update.exe");
-    logger.addMessage(inst_path);
-
-//    size_t found = string(servicePath).find_last_of("\\");
-//    _tcsncpy(path,servicePath,found);
-//    found = string(path).find_last_of("\\");
-//    _tcsncpy(extract_path,path,++found);
-//    _tcscat(path, _T("\\update.exe"));
-
-    logger.addMessage("START SERVICE");
-    hPipe = CreateNamedPipe(
-                lpszPipeName,
-                PIPE_ACCESS_DUPLEX,
-                PIPE_TYPE_MESSAGE|PIPE_READMODE_MESSAGE|PIPE_WAIT,
-                PIPE_UNLIMITED_INSTANCES,
-                512,
-                512,
-                0,
-                NULL
-                );
-    ConnectNamedPipe(hPipe, NULL);
-    logger.addMessage("CREATE PIPE");
-
-    for(;;){
-
-        if(!ReadFile(hPipe,          // handle to pipe
-               pchRequest,          // buffer to receive data
-               BUFSIZE*sizeof(TCHAR), // size of buffer
-               &cbBytesRead,        // number of bytes read
-               NULL                 // not overlapped I/O){
-        )){
-            int err = GetLastError();
-            logger.addMessage(err);
-            if(err == 109){
-                DisconnectNamedPipe(hPipe);
-                ConnectNamedPipe(hPipe, NULL);
-            }else{
-                return;
-            }
-        }
-
-        if(!_tcscmp(pchRequest,"REQUIRE_UPDATE")){
-            logger.addMessage(pchRequest);
-            if(GetFileAttributes(inst_path) != DWORD(-1)){
-                pchReply = "UPDATE_READY";
-                logger.addMessage(pchReply);
-                fSuccess = WriteFile(
-                         hPipe,        // handle to pipe
-                         pchReply,     // buffer to write from
-                         (lstrlen(pchReply)+1)*sizeof(TCHAR), // number of bytes to write
-                         &cbWritten,   // number of bytes written
-                         NULL);        // not overlapped I/O
-            }else{
-                pchReply = "UPDATE_NOT_READY";
-                logger.addMessage(pchReply);
-                fSuccess = WriteFile(
-                         hPipe,        // handle to pipe
-                         pchReply,     // buffer to write from
-                         (lstrlen(pchReply)+1)*sizeof(TCHAR), // number of bytes to write
-                         &cbWritten,   // number of bytes written
-                         NULL);        // not overlapped I/O
-            }
-        }else if(!_tcscmp(pchRequest,"START_UPDATE")){
-            logger.addMessage(pchRequest);
-            DWORD bufferSize = MAX_PATH;
-            TCHAR extract_path[MAX_PATH];
-            TCHAR keyName[] = "SOFTWARE\\";
-            _tcscat_s(keyName, "AutoUpdateClient");
-            RegGetValue(HKEY_LOCAL_MACHINE,
-                        keyName,
-                        "InstallDir",
-                        RRF_RT_ANY,
-                        NULL,
-                        extract_path,
-                        &bufferSize);
-            // additional information
-            TCHAR cmdArg[MAX_PATH];
-            _tcscpy_s(cmdArg, "/S /D=");
-            _tcscat_s(cmdArg, extract_path);
-
-            logger.addMessage(cmdArg);
-            STARTUPINFO si;
-            PROCESS_INFORMATION pi;
-
-            ZeroMemory(&si, sizeof(si));
-            si.cb = sizeof(si);
-            if(!CreateProcess(
-                inst_path,      // the path
-                cmdArg,         // Command line
-                NULL,           // Process handle not inheritable
-                NULL,           // Thread handle not inheritable
-                FALSE,          // Set handle inheritance to FALSE
-                0,              // No creation flags
-                NULL,           // Use parent's environment block
-                NULL,           // Use parent's starting directory
-                &si,            // Pointer to STARTUPINFO structure
-                &pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
-            )){
-                int err = GetLastError();
-                logger.addMessage(err);
-            }
-//            addLogMessage("PROGRESS");
-            CloseHandle(pi.hProcess);
-            CloseHandle(pi.hThread);
-        }else{
-            //-------------message with update information
-            logger.addMessage(pchRequest);
-            DWORD bufferSize = VERSIZE;
-            TCHAR currentVersion[VERSIZE];
-            TCHAR keyName[] = "SOFTWARE\\";
-
-            std::istringstream iss(pchRequest);
-            std::vector<std::string> tokens{std::istream_iterator<std::string>{iss},
-                                  std::istream_iterator<std::string>{}};
-
-            _tcscat_s(keyName, tokens[2].c_str());
-            RegGetValue(HKEY_LOCAL_MACHINE,
-                        keyName,
-                        "Version",
-                        RRF_RT_ANY,
-                        NULL,
-                        currentVersion,
-                        &bufferSize);
-//            addLogMessage(currentVersion);
-
-//            ostringstream stream;
-//            stream << inst_path << "\\" << tokens[2].c_str() << ".exe";
-
-//            _tcscpy(inst_path, stream.str().c_str());
-
-//            DWORD infoSize = 0;
-//            void *fileInfo;
-//            VS_FIXEDFILEINFO *verInfo;
-//            LPBYTE lpBuffer  = NULL;
-//            UINT size = 0;
-//            DWORD verSize = GetFileVersionInfoSize(inst_path,
-//                                   &infoSize);
-//            GetFileVersionInfo(inst_path,
-//                               infoSize,
-//                               verSize,
-//                               fileInfo);
-//            VerQueryValue(fileInfo,
-//                          "\\",
-//                          (LPVOID*)&verInfo,
-//                          &size);
-//            VS_FIXEDFILEINFO *verInfo = (VS_FIXEDFILEINFO *)lpBuffer;
-
-//            int revision = HIWORD(verInfo->dwProductVersionLS);
-//            int build = LOWORD(verInfo->dwProductVersionLS);
-
-//            ofstream outputFile("C:\\result.txt",ios_base::app);
-//            outputFile << HIWORD(verInfo->dwProductVersionMS) << endl;
-//            outputFile << LOWORD(verInfo->dwProductVersionMS) << endl;
-//            outputFile.close();
-
-//            delete[] fileInfo;
-
-            if(_tcscmp(tokens[0].c_str(),currentVersion) > 0){
-//                if(GetFileAttributes(inst_path) == DWORD(-1)){
-                    HRESULT hr = URLDownloadToFile(NULL, _T(tokens[1].c_str()),
-                            inst_path, 0, NULL);
-//                }
-            }
-        }
-        //DisconnectNamedPipe(hPipe);
+    error = InitService();
+    if (error){
+        serviceStatus.dwCurrentState    = SERVICE_STOPPED;
+        serviceStatus.dwWin32ExitCode   = -1;
+        SetServiceStatus(serviceStatusHandle, &serviceStatus);
+        return;
     }
-    CloseHandle(hPipe);
+
     return;
 }
 
@@ -366,6 +160,7 @@ int startAupService() {
         CloseServiceHandle(hSCManager);
 //        LPVOID lpMsgBuf;
         DWORD dw = GetLastError();
+        int err = GetLastError();
 //        FormatMessage(
 //                FORMAT_MESSAGE_ALLOCATE_BUFFER |
 //                FORMAT_MESSAGE_FROM_SYSTEM |
@@ -419,7 +214,7 @@ int startAupService() {
                 printf(" %d", err);
                 break;
         }
-        LocalFree(lpMsgBuf);
+        //LocalFree(lpMsgBuf);
         return -1;
     }
     //addLogMessage("Start service");
